@@ -221,4 +221,4 @@ node /tmp/timetracker-entry.js
 
 ## 関連 Skill
 
-- [`playwright-cli`](.claude/commands/playwright-cli.md) — Playwright CLI の基本操作リファレンス
+- [`playwright-cli`](.claude/skills/playwright-cli/SKILL.md) — Playwright CLI の基本操作リファレンス

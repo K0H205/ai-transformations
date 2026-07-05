@@ -58,7 +58,7 @@ def run_interactive(target_dir: str) -> None:
     agent = create_agent()
 
     print("=" * 60)
-    print(f"仕様調査エージェント インタラクティブモード（Copilot SDK 委譲版・実験的）")
+    print("仕様調査エージェント インタラクティブモード（Copilot SDK 委譲版・実験的）")
     print(f"対象: {os.path.abspath(target_dir)}")
     print("終了するには 'quit' または Ctrl+C を入力してください。")
     print("=" * 60)

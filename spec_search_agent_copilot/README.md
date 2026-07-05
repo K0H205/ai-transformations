@@ -30,6 +30,9 @@ spec_search_agent_copilot/
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY="your-api-key"   # このエージェント自身のモデル用
 # Copilot CLI 側の認証は copilot コマンドのドキュメントに従って別途設定する
+
+# 任意: Copilot セッションで使うモデルID（省略時は Copilot CLI のデフォルト）
+export COPILOT_MODEL="..."
 ```
 
 ## 実行

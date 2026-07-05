@@ -55,14 +55,17 @@ def list_files(directory: str = ".", pattern: str = "**/*") -> str:
     if not resolved.is_dir():
         return f"エラー: '{directory}' はディレクトリではありません。"
 
-    files = [
-        p for p in resolved.glob(pattern)
-        if p.is_file() and not _is_ignored(p.relative_to(_base_dir()))
-    ]
+    base = _base_dir()
+    try:
+        files = [
+            p for p in resolved.glob(pattern)
+            if p.is_file() and not _is_ignored(p.relative_to(base))
+        ]
+    except (ValueError, NotImplementedError) as exc:
+        return f"エラー: glob パターン '{pattern}' が不正です ({exc})。相対パターン (例: '**/*.py') を指定してください。"
     if not files:
         return f"'{directory}' 配下でパターン '{pattern}' に一致するファイルは見つかりませんでした。"
 
-    base = _base_dir()
     rel_paths = sorted(str(p.relative_to(base)) for p in files)
     return f"{len(rel_paths)} 件のファイルが見つかりました:\n" + "\n".join(rel_paths)
 
@@ -95,7 +98,12 @@ def search_code(pattern: str, directory: str = ".", file_glob: str = "**/*", con
     results = []
     truncated = False
 
-    for file_path in sorted(resolved.glob(file_glob)):
+    try:
+        target_files = sorted(resolved.glob(file_glob))
+    except (ValueError, NotImplementedError) as exc:
+        return f"エラー: glob パターン '{file_glob}' が不正です ({exc})。相対パターン (例: '**/*.py') を指定してください。"
+
+    for file_path in target_files:
         if not file_path.is_file() or _is_ignored(file_path.relative_to(base)):
             continue
         try:
@@ -146,13 +154,20 @@ def read_file(path: str, start_line: int | None = None, end_line: int | None = N
     except OSError as exc:
         return f"エラー: ファイルを読み込めません ({exc})"
 
+    if not lines:
+        return f"{path} は空のファイルです（0行）。"
+
     start = max(1, start_line or 1)
     end = min(len(lines), end_line or len(lines))
+    if start > len(lines):
+        return f"エラー: start_line={start_line} はファイル末尾（全{len(lines)}行）を超えています。"
+    if end < start:
+        return f"エラー: end_line={end_line} が start_line={start} より前を指しています。"
     truncated = False
     if end - start + 1 > max_lines:
         end = start + max_lines - 1
         truncated = True
 
     numbered = "\n".join(f"{n:>5}: {lines[n - 1]}" for n in range(start, end + 1))
-    footer = f"\n\n(以降 {len(lines) - end} 行を省略しました。end_line を指定して続きを読んでください。)" if truncated else ""
+    footer = f"\n\n(以降 {len(lines) - end} 行を省略しました。start_line={end + 1} を指定して続きを読んでください。)" if truncated else ""
     return f"{path} ({start}-{end}行目 / 全{len(lines)}行):\n{numbered}{footer}"

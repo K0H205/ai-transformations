@@ -3,11 +3,18 @@
 Strands Agents SDK をラップし、複数リクエストを並行実行する。
 共有可変状態（会話履歴など）の競合を避けるため、リクエストごとに
 独立した ``Agent`` インスタンスを生成してから ``invoke_async`` を実行する。
+
+セットアップ:
+    pip install -r requirements.txt
+
+実行:
+    python agent.py
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Iterable, Sequence
 
 from strands import Agent
@@ -90,3 +97,33 @@ class ParallelAgent:
     def invoke_many(self, prompts: Sequence[str]) -> list[Any]:
         """同期的に複数プロンプトを並列実行する簡易ヘルパ。"""
         return asyncio.run(self.ainvoke_many(prompts))
+
+
+# ---------------------------------------------------------------------------
+# デモ用ヘルパー
+# ---------------------------------------------------------------------------
+
+PROMPTS = [
+    "日本の首都はどこですか？短く答えて。",
+    "フランスの首都はどこですか？短く答えて。",
+    "ドイツの首都はどこですか？短く答えて。",
+]
+
+
+async def run_demo() -> None:
+    """複数プロンプトを同時実行し、経過時間を確認します。"""
+    print("=== ParallelAgent: 3件を同時実行 ===")
+    agent = ParallelAgent(
+        system_prompt="あなたは簡潔に答えるアシスタントです。",
+        max_concurrency=4,
+    )
+    started = time.perf_counter()
+    results = await agent.ainvoke_many(PROMPTS)
+    elapsed = time.perf_counter() - started
+    for prompt, result in zip(PROMPTS, results):
+        print(f"- Q: {prompt}\n  A: {result}")
+    print(f"経過時間: {elapsed:.2f}s\n")
+
+
+if __name__ == "__main__":
+    asyncio.run(run_demo())

@@ -5,11 +5,18 @@ Strands Agents SDK をラップし、同時に1件のリクエストしか処理
 ``reject`` モードなら :class:`AgentBusyError` を送出して即座に失敗する。
 単一の ``Agent`` インスタンスを使い回すため、会話履歴を保持したまま
 順序が保証された対話を実現できる。
+
+セットアップ:
+    pip install -r requirements.txt
+
+実行:
+    python agent.py
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Iterable, Literal
 
 from strands import Agent
@@ -78,3 +85,56 @@ class SerialAgent:
     def invoke(self, prompt: str) -> Any:
         """同期的に1件のプロンプトを実行する簡易ヘルパ。"""
         return asyncio.run(self.ainvoke(prompt))
+
+
+# ---------------------------------------------------------------------------
+# デモ用ヘルパー
+# ---------------------------------------------------------------------------
+
+PROMPTS = [
+    "日本の首都はどこですか？短く答えて。",
+    "フランスの首都はどこですか？短く答えて。",
+    "ドイツの首都はどこですか？短く答えて。",
+]
+
+
+async def run_demo_queue() -> None:
+    """queue モード: 後続リクエストはロック解放まで待機する。"""
+    print("=== SerialAgent(queue): 後続リクエストはロック解放まで待機 ===")
+    agent = SerialAgent(
+        system_prompt="あなたは簡潔に答えるアシスタントです。",
+        overflow_policy="queue",
+    )
+    started = time.perf_counter()
+    # わざと同時に投入しても、内部ロックにより順番に実行される
+    results = await asyncio.gather(*(agent.ainvoke(p) for p in PROMPTS))
+    elapsed = time.perf_counter() - started
+    for prompt, result in zip(PROMPTS, results):
+        print(f"- Q: {prompt}\n  A: {result}")
+    print(f"経過時間: {elapsed:.2f}s\n")
+
+
+async def run_demo_reject() -> None:
+    """reject モード: 処理中の同時投入は即エラーになる。"""
+    print("=== SerialAgent(reject): 処理中の同時投入は即エラー ===")
+    agent = SerialAgent(
+        system_prompt="あなたは簡潔に答えるアシスタントです。",
+        overflow_policy="reject",
+    )
+    first = asyncio.create_task(agent.ainvoke(PROMPTS[0]))
+    # 1件目が走り始めるまで少し待つ
+    await asyncio.sleep(0)
+    try:
+        await agent.ainvoke(PROMPTS[1])
+    except AgentBusyError as exc:
+        print(f"期待通りエラー: {exc}")
+    print(f"最初のリクエスト結果: {await first}\n")
+
+
+async def run_demo() -> None:
+    await run_demo_queue()
+    await run_demo_reject()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_demo())

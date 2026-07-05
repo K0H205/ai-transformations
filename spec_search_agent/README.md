@@ -24,6 +24,7 @@ Strands Agents 上で再現しています。
 ```
 spec_search_agent/
   tools.py         # glob/grep/read 相当の自作ツール（標準ライブラリのみ）
+  repo_map.py      # リポジトリ地図（簡易Wiki）の生成
   agent.py         # 上記ツールを使う Strands Agent
   requirements.txt
 ```
@@ -35,6 +36,18 @@ spec_search_agent/
 - `read_file(path, start_line, end_line, max_lines)` — 行番号付きでファイルを読み込み
 
 いずれも `SPEC_SEARCH_BASE_DIR` 環境変数で指定した調査対象ディレクトリの外は参照できないようガードしています（`agent.py` が内部で設定するため、通常は意識する必要はありません）。
+
+## リポジトリ地図（簡易Wiki）
+
+エージェント起動時に、調査対象リポジトリの「地図」（ファイルツリー + Python の
+関数/クラスシグネチャ + docstring 先頭行）を `repo_map.py` が生成し、システム
+プロンプトに注入します。DevinSearch における Wiki と同じく「どこを見るべきか」の
+初動の当たり付けを支援するもので、探索がゼロからの試行錯誤で始まるのを防ぎます。
+
+生成は標準ライブラリ `ast` による静的抽出のみで、LLM を使わないため高速・無料・
+決定的です（キャッシュ管理も不要）。地図はあくまで当たり付け用であり、エージェント
+には「実装の中身は必ず search_code / read_file で確認してから回答する」よう指示
+しています。
 
 ## セットアップ
 

@@ -22,18 +22,20 @@ from pathlib import Path
 from strands import Agent
 from strands.models.anthropic import AnthropicModel
 
+from repo_map import build_repo_map
 from tools import list_files, read_file, search_code
 
 SYSTEM_PROMPT = (
     "あなたはソースコードの実装を調査し、そこから仕様を読み解く「仕様調査アシスタント」です。\n"
     "\n"
     "調査の進め方（Agentic Search）:\n"
-    "1. list_files でディレクトリ構成を把握し、関連しそうなファイルの当たりを付ける。\n"
-    "2. search_code でキーワード・関数名・クラス名を検索し、該当箇所を特定する。\n"
+    "1. まず末尾の「調査対象リポジトリの地図」で関連しそうなファイル・関数の当たりを付ける。\n"
+    "2. list_files でディレクトリ構成を把握し、search_code でキーワード・関数名・クラス名を検索して該当箇所を特定する。\n"
     "3. read_file で該当箇所とその前後の文脈を実際に読む。\n"
     "4. 根拠が不十分だと感じたら、1〜3を繰り返してさらに深掘りする。1回の検索で終わらせないこと。\n"
     "\n"
     "回答のルール:\n"
+    "- 地図はファイル構成とシグネチャのみで実装の中身は含まない。必ず search_code / read_file で実際のコードを確認してから回答すること。\n"
     "- 推測ではなく、実際に読んだコードから読み取れる事実のみを根拠にすること。\n"
     "- 回答には根拠となったファイルパスと行番号（file:line）を必ず明記すること。\n"
     "- 回答は次の形式でまとめること: 「概要 / 入力 / 出力・挙動 / 制約・エラー処理 / 根拠（file:line）」\n"
@@ -41,7 +43,14 @@ SYSTEM_PROMPT = (
 )
 
 
-def create_agent() -> Agent:
+def create_agent(base_dir: str) -> Agent:
+    """base_dir を調査対象としてエージェントを作成する。
+
+    起動時に base_dir のリポジトリ地図（ファイルツリー + Python シグネチャ）を
+    生成し、システムプロンプトに注入する（DevinSearch の Wiki に相当する初動支援）。
+    """
+    os.environ["SPEC_SEARCH_BASE_DIR"] = base_dir
+
     model = AnthropicModel(
         client_args={"api_key": os.environ.get("ANTHROPIC_API_KEY")},
         model_id="claude-sonnet-4-6",
@@ -50,20 +59,22 @@ def create_agent() -> Agent:
     return Agent(
         model=model,
         tools=[list_files, search_code, read_file],
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=(
+            SYSTEM_PROMPT
+            + "\n\n## 調査対象リポジトリの地図\n\n"
+            + build_repo_map(base_dir)
+        ),
     )
 
 
 def run_demo() -> None:
     """strands_sample を調査対象にして、代表的な仕様調査の質問を試す。"""
-    os.environ["SPEC_SEARCH_BASE_DIR"] = str(Path(__file__).resolve().parent.parent / "strands_sample")
-
     demo_queries = [
         "calculate ツールの仕様（入力・出力・使える関数・エラー処理）を教えてください。",
         "get_weather ツールが対応している都市一覧と、未対応の都市を渡された場合の挙動を教えてください。",
     ]
 
-    agent = create_agent()
+    agent = create_agent(str(Path(__file__).resolve().parent.parent / "strands_sample"))
 
     print("=" * 60)
     print("仕様調査エージェント デモ（対象: strands_sample）")
@@ -79,8 +90,7 @@ def run_demo() -> None:
 
 def run_interactive(target_dir: str) -> None:
     """指定ディレクトリを対象に、対話的に仕様を質問できる REPL。"""
-    os.environ["SPEC_SEARCH_BASE_DIR"] = target_dir
-    agent = create_agent()
+    agent = create_agent(target_dir)
 
     print("=" * 60)
     print(f"仕様調査エージェント インタラクティブモード（対象: {os.path.abspath(target_dir)}）")

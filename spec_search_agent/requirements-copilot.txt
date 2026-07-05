@@ -1,4 +1,0 @@
-# agent_copilot_search.py / tools_copilot_search.py（実験的サンプル・動作未検証）用の追加依存
-# 事前に requirements.txt もインストールしておくこと。
-# 利用には Copilot CLI のインストールと GitHub Copilot の認証（またはBYOKキー）が別途必要。
-github-copilot-sdk>=0.1.0

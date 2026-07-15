@@ -25,5 +25,10 @@
   - `spec_search_agent` と同じ仕様調査を、探索処理そのものを GitHub Copilot SDK 経由で
     Copilot CLI のエージェントに委譲する構成で実現
   - このリポジトリの開発環境では未検証。Copilot CLI のインストールと認証が別途必要
+- [`copilot_session_analyzer/`](copilot_session_analyzer/) — **Copilot CLI セッション履歴分析ツール**
+  - Copilot CLI が `~/.copilot` に残すセッション履歴（SQLite + events.jsonl）から
+    ツール失敗・再試行・権限拒否などの「摩擦シグナル」を決定論的に集計
+  - Anthropic API（structured outputs）でAGENTS.md追記案などのハーネス改善提案を生成
+  - `--no-llm` でAPIキー無しでも決定論集計のみのレポートを取得可能
 
 セットアップ・実行・テスト方法は各ディレクトリの README を参照してください。

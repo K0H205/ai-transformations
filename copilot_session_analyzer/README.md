@@ -11,7 +11,7 @@ AGENTS.md追記案などのハーネス改善提案をMarkdownレポートとし
 extractor.py  → 抽出層: session-store.db(SQLite, read-only) + events.jsonl を読み取る
 signals.py    → 決定論集計層: ツール失敗率・再試行・権限拒否・軌道修正・コストをLLM無しで算出
 masking.py    → マスキング層: LLM送信前に資格情報・トークン・メールアドレス等を正規表現で除去
-llm.py        → LLM層: Anthropic API (structured outputs) で改善提案を生成(1回のreduce呼び出し)
+llm.py        → LLM層: Anthropic API で改善提案を自由文Markdownとして生成(1回のreduce呼び出し)
 report.py     → 出力層: Markdownレポートを組み立てる
 analyzer.py   → CLIエントリポイント
 ```
@@ -63,8 +63,14 @@ python analyzer.py --model claude-opus-4-8 --output report.md
 | コスト | `assistant.usage` の inputTokens / outputTokens / cost 合計 |
 
 `--no-llm` を付けない場合、これらの集計とマスク済みの代表的失敗メッセージのみを
-Anthropic APIに送信し、`structured outputs`(Pydanticモデル)でAGENTS.md追記案・
-Agent Skill化候補などを型固定して受け取ります。**生のevents.jsonl全文は送信しません。**
+Anthropic APIに送信し、AGENTS.md追記案・Agent Skill化候補などの改善提案を
+自由文Markdownとして受け取り、レポートにそのまま埋め込みます。
+**生のevents.jsonl全文は送信しません。**
+
+提案の見出し形式(`### 提案N: <タイトル> [対象: ... / 信頼度: ...]`)はシステム
+プロンプトで指示していますが、structured outputs による型固定は行っていないため、
+出力形式は厳密には保証されません。その代わりモデルの制約が無く任意のモデルを
+`--model` で指定できます。
 
 ## テスト
 

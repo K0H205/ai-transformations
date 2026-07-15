@@ -2,7 +2,7 @@
 出力層
 ======================================================
 
-決定論集計(signals.AggregateSignals)とLLM提案(llm.ProposalReport, 任意)から
+決定論集計(signals.AggregateSignals)とLLM提案(自由文Markdownの文字列, 任意)から
 Markdownレポートを組み立てる。
 """
 
@@ -10,18 +10,13 @@ from __future__ import annotations
 
 from signals import AggregateSignals
 
-try:
-    from llm import ProposalReport
-except ImportError:  # anthropic未インストール環境でもレポート生成自体は動かす
-    ProposalReport = None  # type: ignore[assignment,misc]
-
 
 def build_report(
     aggregate: AggregateSignals,
     copilot_home: str,
     days: int | None,
     repo: str | None,
-    proposals: "ProposalReport | None" = None,
+    proposals: str | None = None,
 ) -> str:
     """Markdownレポートのテキストを組み立てる。"""
     lines: list[str] = []
@@ -67,21 +62,9 @@ def build_report(
     if proposals is not None:
         lines.append("## ハーネス改善提案")
         lines.append("")
-        if not proposals.proposals:
-            lines.append("(LLMからの提案はありませんでした)")
-        for i, p in enumerate(proposals.proposals, start=1):
-            lines.append(f"### 提案{i}: {p.title} [対象: {p.target} / 信頼度: {p.confidence}]")
-            lines.append("")
-            lines.append(f"**検出**: {p.rationale}")
-            lines.append("")
-            lines.append(f"**根拠セッション**: {', '.join(p.evidence_session_ids) or '(なし)'}")
-            lines.append("")
-            lines.append("**追記案**:")
-            lines.append("")
-            lines.append("```")
-            lines.append(p.suggested_text)
-            lines.append("```")
-            lines.append("")
+        # LLMが生成した自由文Markdownをそのまま埋め込む。
+        lines.append(proposals.strip())
+        lines.append("")
     else:
         lines.append("## ハーネス改善提案")
         lines.append("")

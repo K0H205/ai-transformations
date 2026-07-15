@@ -3,17 +3,16 @@ LLM層(reduce)
 ======================================================
 
 決定論集計層(signals.py)の出力とマスク済みの代表的失敗メッセージを入力として、
-Anthropic API の structured outputs でハーネス改善提案を生成する。
+Anthropic API でハーネス改善提案を自由文Markdownとして生成する。
+
+生成されたMarkdownは report.py がそのままレポートに埋め込む。structured outputs
+(型固定)は使わないため、対応モデルの制約が無く任意のモデルを指定できる。
 
 生の events.jsonl 全文は送信しない。コンテキスト長・コスト・プライバシーの
 いずれの観点からも、決定論集計とサンプルメッセージだけを渡す設計とする。
 """
 
 from __future__ import annotations
-
-from typing import Literal
-
-from pydantic import BaseModel, Field
 
 from masking import mask_text
 from signals import AggregateSignals
@@ -27,31 +26,19 @@ SYSTEM_PROMPT = (
     "AGENTS.md追記案・Agent Skill化候補・カスタムエージェント化候補・MCPサーバー"
     "導入候補などを提案してください。\n"
     "\n"
+    "出力形式(Markdown):\n"
+    "- 提案ごとに次の見出しを付けること: "
+    "`### 提案N: <タイトル> [対象: <agents_md|skill|subagent|mcp|instructions> / "
+    "信頼度: <high|medium|low>]`\n"
+    "- 各提案には「検出したパターンの説明」「根拠セッションID」「追記文案(コードブロック)」"
+    "を含めること。\n"
+    "- レポートに直接埋め込むため、全体を囲む見出し(## など)や前置き・後置きの挨拶は書かないこと。\n"
+    "\n"
     "ルール:\n"
     "- 提案は必ず与えられたデータに基づくこと。データにない推測をしないこと。\n"
-    "- 根拠となったセッションIDを evidence_session_ids に列挙すること。\n"
-    "- 十分な根拠(同じ失敗パターンの反復)がない提案は confidence を low にすること。\n"
-    "- 有用な提案が無ければ、無理に proposals を埋めず空リストで返すこと。"
+    "- 十分な根拠(同じ失敗パターンの反復)がない提案は信頼度を low にすること。\n"
+    "- 有用な提案が無ければ、その旨を1行で述べること。"
 )
-
-
-class Proposal(BaseModel):
-    """1件のハーネス改善提案。"""
-
-    target: Literal["agents_md", "skill", "subagent", "mcp", "instructions"] = Field(
-        description="改善提案の適用先"
-    )
-    title: str = Field(description="提案の短いタイトル")
-    rationale: str = Field(description="この提案をした理由(検出したパターンの説明)")
-    suggested_text: str = Field(description="AGENTS.md等への追記案・具体的な文案")
-    evidence_session_ids: list[str] = Field(description="根拠となったセッションIDの一覧")
-    confidence: Literal["high", "medium", "low"] = Field(description="提案の信頼度")
-
-
-class ProposalReport(BaseModel):
-    """LLMが生成する提案レポート全体。"""
-
-    proposals: list[Proposal] = Field(description="ハーネス改善提案の一覧")
 
 
 def build_llm_input(aggregate: AggregateSignals, home_dir: str | None = None) -> str:
@@ -82,29 +69,31 @@ def generate_proposals(
     api_key: str | None = None,
     model: str = DEFAULT_MODEL,
     home_dir: str | None = None,
-) -> ProposalReport:
-    """Anthropic API を呼び出し、構造化された改善提案レポートを取得する。"""
+) -> str:
+    """Anthropic API を呼び出し、改善提案の自由文Markdownを取得する。"""
     import anthropic
 
     client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
 
     llm_input = build_llm_input(aggregate, home_dir=home_dir)
 
-    response = client.messages.parse(
+    response = client.messages.create(
         model=model,
-        max_tokens=4096,
+        max_tokens=8192,
         thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": llm_input}],
-        output_format=ProposalReport,
     )
 
-    if response.parsed_output is None:
-        # 拒否・スキーマ不一致・max_tokens打ち切り等で構造化出力が得られなかった場合。
-        # None のまま返すと report.py が誤って --no-llm 用のメッセージを表示するため、
-        # 呼び出し側(CLI)がエラーを提示できるよう明示的に失敗させる。
+    text = "\n".join(
+        block.text for block in response.content if getattr(block, "type", None) == "text"
+    ).strip()
+
+    if not text:
+        # 拒否・打ち切り等でテキストが得られなかった場合。空文字のまま返すと
+        # report.py が空の提案セクションを出すため、CLIがエラー提示できるよう失敗させる。
         raise RuntimeError(
-            f"LLMから構造化された提案を取得できませんでした(stop_reason={response.stop_reason})"
+            f"LLMから提案テキストを取得できませんでした(stop_reason={response.stop_reason})"
         )
 
-    return response.parsed_output
+    return text

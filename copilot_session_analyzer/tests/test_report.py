@@ -46,6 +46,24 @@ def test_build_report_with_days_and_repo_filters(copilot_home: Path) -> None:
     assert "myservice-repo" in text
 
 
+def test_build_report_embeds_llm_markdown(copilot_home: Path) -> None:
+    sessions = discover_sessions(copilot_home)
+    aggregate = compute_signals(sessions)
+
+    llm_markdown = "### 提案1: AGENTS.mdにテストコマンドを明記 [対象: agents_md / 信頼度: high]\n\n本文"
+    text = build_report(
+        aggregate,
+        copilot_home=str(copilot_home),
+        days=None,
+        repo=None,
+        proposals=llm_markdown,
+    )
+
+    assert "## ハーネス改善提案" in text
+    assert llm_markdown in text
+    assert "--no-llm" not in text  # LLM経路なのでスキップ説明は出ない
+
+
 def test_build_report_empty_aggregate() -> None:
     from signals import AggregateSignals
 

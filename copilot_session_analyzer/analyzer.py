@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
         "--model",
         type=str,
         default=None,
-        help="LLM提案生成に使うモデルID(既定: claude-sonnet-4-6)",
+        help="LLM提案生成に使うモデルID(既定: claude-sonnet-5)",
     )
     parser.add_argument(
         "--output",

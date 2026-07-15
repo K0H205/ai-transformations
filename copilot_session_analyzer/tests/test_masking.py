@@ -61,6 +61,14 @@ def test_normalizes_home_dir() -> None:
     assert "~/project/secret.txt" in masked
 
 
+def test_root_home_dir_does_not_corrupt_text() -> None:
+    # home_dir が "/" だと rstrip 後に空文字となり、無防備だと re.sub が
+    # 全文字間に "~" を挿入してテキストを破壊する。ガードされていることを確認。
+    text = "error at /etc/passwd"
+    masked = mask_text(text, home_dir="/")
+    assert masked == text
+
+
 def test_leaves_clean_text_unchanged() -> None:
     text = "this is a normal error message with no secrets"
     masked = mask_text(text)

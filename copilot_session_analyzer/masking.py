@@ -38,9 +38,11 @@ def mask_text(text: str, home_dir: str | None = None) -> str:
     masked = text
 
     if home_dir:
-        # 長いパスから優先的に置換されるよう、home_dir自体をエスケープして使用
-        escaped = re.escape(home_dir.rstrip("/"))
-        masked = re.sub(escaped, "~", masked)
+        stripped = home_dir.rstrip("/")
+        # home_dir が "/" 等で空文字になると re.sub("", ...) が全文字間に "~" を
+        # 挿入してテキストを破壊するため、空パターンは置換しない。
+        if stripped:
+            masked = re.sub(re.escape(stripped), "~", masked)
 
     for label, pattern in _PATTERNS:
         masked = pattern.sub(f"[MASKED:{label}]", masked)

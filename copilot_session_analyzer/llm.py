@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from masking import mask_text
 from signals import AggregateSignals
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "claude-sonnet-5"
 
 SYSTEM_PROMPT = (
     "あなたはGitHub Copilot CLIのセッション履歴から「ハーネス改善提案」を作る"
@@ -98,5 +98,13 @@ def generate_proposals(
         messages=[{"role": "user", "content": llm_input}],
         output_format=ProposalReport,
     )
+
+    if response.parsed_output is None:
+        # 拒否・スキーマ不一致・max_tokens打ち切り等で構造化出力が得られなかった場合。
+        # None のまま返すと report.py が誤って --no-llm 用のメッセージを表示するため、
+        # 呼び出し側(CLI)がエラーを提示できるよう明示的に失敗させる。
+        raise RuntimeError(
+            f"LLMから構造化された提案を取得できませんでした(stop_reason={response.stop_reason})"
+        )
 
     return response.parsed_output

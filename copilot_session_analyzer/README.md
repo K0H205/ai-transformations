@@ -48,7 +48,7 @@ python analyzer.py --model claude-opus-4-8 --output report.md
 | `--days N` | 直近N日以内のセッションのみを対象にする |
 | `--repo NAME` | 特定のリポジトリ名でセッションを絞り込む |
 | `--no-llm` | LLMを呼び出さず、決定論集計のみのレポートを出力する(APIキー不要) |
-| `--model ID` | LLM提案生成に使うモデルID(既定: `claude-sonnet-4-6`) |
+| `--model ID` | LLM提案生成に使うモデルID(既定: `claude-sonnet-5`) |
 | `--output PATH` | レポートの出力先ファイルパス(既定: 標準出力) |
 
 ## 検出する摩擦シグナル
